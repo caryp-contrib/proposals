@@ -1,31 +1,35 @@
 ## Extending Chef Deploy for Object Storage Services
 
 
-## MOTIVATION
-Some cloud production environments require the deployment of application code stored in a highly-available object storage service (like S3 or CloudFiles) to avoid being dependent on github.com (or some other SCM server) being available when launching virtual servers.
+## OVERVIEW
+Some cloud production environments require the deployment of application code to be stored in a highly-available object storage service (like S3 or CloudFiles) to avoid being dependent on github.com (or some other SCM server) availability when launching virtual servers.  To do this we propose a new SCM chef provider named ```Chef::Provider::ScmObject```.  This provider will be used to download application code to the filesystem much like the ```Chef::Provider::Git``` and ```Chef::Provider::Subversion``` providers do, the only difference is that it will do so from an archive file (i.e. tar) stored in a remote object storage service, instead of a traditional SCM server.
+
+The following sections go into the details of changes needed to support such a provider.
 
 ## SCOPE
-Although, there may still be concerns with other sorts of external dependencies -- like mirroring package repos, mirroring rubygems, and making sure there are no git'ed gems in your application [Gemfiles](http://gembundler.com/v1.3/gemfile.html), this proposal only focuses on removing the external SCM dependency.
+Although, there may still be concerns with other sorts of external dependencies -- like mirroring package repos, mirroring rubygems, and making sure there are no git'ed gems in your application [Gemfiles](http://gembundler.com/v1.3/gemfile.html), this proposal only focuses on removing the external SCM dependency for our web application code.
 
 
 ## IMPLEMENTATION
-To support the deployment of applications from tarballs we will leverage the existing [Deploy](http://docs.opscode.com/resource_deploy.html) chef resource by extending the attributes accepted by ```Chef::Resource::Deploy``` class. See [ATTRIBUTES](#attributes) for details. 
+These archives (tarballs) contain our web application code, and so, we will want to leverage all the migration, callback and rollback functionality offered by the existing [Deploy](http://docs.opscode.com/resource_deploy.html) chef resource for flexible application deployment.
 
-We will also leverage the [SCM](http://docs.opscode.com/resource_scm.html) chef resource by extending the same attributes.  Since an object store is not a true SCM, the ```:sync``` and ```:checkout``` actions for this resource will simply be aliased to the ```:export``` action which basically downloads and extracts the archive file.
+The Deploy resource delegates to the [SCM](http://docs.opscode.com/resource_scm.html) chef resource for downloading the application code, so we will implement ```Chef::Provider::ScmObject``` as an SCM provider, which will allow it to 'plug-in' to the deploy resource.
 
-Once supported by the above resources, it should be easy to extend this deployment option to the community [Application cookbook](http://community.opscode.com/cookbooks/application).
+For consistency with the Git and Subversion support, we will need to add some additional object storage specific attributes to both the SCM and Deploy resources. See [ATTRIBUTES](#attributes) for details.
+
+Once supported by the above resources, it should be easy to extend ObjectSCM deployment as an option to the community [Application cookbook](http://community.opscode.com/cookbooks/application).
 
 For some other tangential issues see the [OTHER STUFF](#other-stuff) section at the end of this doc.
 
 
 ## ATTRIBUTES
-The following attributes are proposed for addition to the Deploy and SCM resources, with the intention that they will be used with ObjectStorage providers only:
+The following attributes are proposed for addition to the Deploy and SCM resources, with the intention that they will be used with ScmObject providers only:
 
 * ```object_storage_account```  :  The account name (i.e. username, ID) that is required to access files in the specified location. This input is optional and may not be required if the files are publicly accessible.
 
 * ```object_storage_credential``` : A valid credential (i.e. password, SSH key, account secret) to access files in the specified location. This input is optional and may not be required if the files are publicly accessible.
 
-* ```object_storage_endpoint``` : The endpoint (URL) to the object storage service.  This is used for private object storage providers, like ```Chef::Provider::ObjectStorageSwift```
+* ```object_storage_endpoint``` : The endpoint (URL) to the object storage service.  This is used for private object storage providers, like ```Chef::Provider::ScmObjectSwift```
 
 * ```object_storage_container``` : The container, bucket or path that contains your application archives.
 
@@ -33,7 +37,7 @@ The following attributes are proposed for addition to the Deploy and SCM resourc
 
 ## ARCHIVE NAMING CONVENTIONS
 
-The initial version of the ObjectStorage providers will support .tar and .tgz archive extensions.
+The initial version of the ScmObject providers will support .tar and .tgz archive extensions.
 
 To support deploying the latest archive file in the container, there needs to be a natural sort order in the naming convention you choose for your archive files. For example: 
   
@@ -70,6 +74,9 @@ So I see these being possible deliverables in the first pass.
 
 ### Delivery of initial support
 The beta version of this feature will be delivered in cookbook form.  To do this we will be monkey-patching both the ```Chef::Resource::Deploy``` and ```Chef::Resource::Scm``` resource classes.  Not a great solution, but will allow for easy test-driving of the feature and quick bugfix iterations.  Ideally, this code will eventually be folded into the Chef gem itself.
+
+### SCM actions don't map to an object storage service
+Since an object store is not a true SCM, the ```:sync``` and ```:checkout``` actions for this resource will simply be aliased in the provider code to execute the ```:export``` action.
 
 ### Stand-alone object_storage resources
 Since downloading from object storage services has value by itself, we might also choose to add similar support to ```remote_file``` and ```remote_directory``` resources -- or, more likely, a new ```object_storage``` resource altogether.  (input welcome!)
