@@ -2,7 +2,7 @@
 
 
 ## OVERVIEW
-Some cloud production environments require the deployment of application code to be stored in a highly-available object storage service (like S3 or CloudFiles) to avoid being dependent on github.com (or some other SCM server) availability when launching virtual servers.  To do this we propose a new SCM chef provider named ```Chef::Provider::ScmObject```.  This provider will be used to download application code to the filesystem much like the ```Chef::Provider::Git``` and ```Chef::Provider::Subversion``` providers do, the only difference is that it will do so from an archive file (i.e. tar) stored in a remote object storage service, instead of a traditional SCM server.
+Some cloud production environments require the deployment of application code to be stored in a highly-available object storage service (like S3 or CloudFiles) to avoid being dependent on github.com (or some other SCM server) availability when launching virtual servers.  To do this we propose a new SCM chef provider named ```Chef::Provider::ScmObject```.  This provider will be used to download application code to the filesystem much like the ```Chef::Provider::Git``` and ```Chef::Provider::Subversion``` providers do, the only difference is that it will do so from an archive file (i.e. tar) stored in a remote object storage service, instead of a traditional SCM server.  The reason for treating these  archive files as SCM artifacts is to leverage the all the migration, callback and rollback functionality offered by the existing [Deploy](http://docs.opscode.com/resource_deploy.html) chef resource.
 
 The following sections go into the details of changes needed to support such a provider.
 
